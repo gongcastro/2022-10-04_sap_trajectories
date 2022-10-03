@@ -1,0 +1,601 @@
+---
+format:
+    revealjs: 
+        theme: default
+        logo: img/logo.png
+        footer: "SAP Seminar 2022-10-04"
+        transition: slide
+        background-transition: fade
+        transition-speed: fast
+fig-dpi: 1500
+slide-number: true
+show-slide-number: all
+---
+
+## A cognate facilitation effect during bilingual word acquisition? {background-color="white"}
+
+<br><br>
+
+Gonzalo Garcia-Castro &nbsp; [`r fontawesome::fa("github", "black")`](https://github.com/gongcastro)
+
+Daniela Ávila-Varela
+
+Ignacio Castillejo
+
+Nuria Sebastian-Galles
+
+![](img/logo.png){.absolute bottom=0 right=0 width="250"}
+
+```{r}
+#| label: load objects
+#| echo: false
+#| warning: false
+library(dplyr)
+library(tidyr)
+library(tibble)
+library(stringr)
+library(ggplot2)
+library(ggsci)
+library(gt)
+library(loo)
+library(tidybayes)
+library(scales)
+library(forcats)
+library(janitor)
+library(papaja)
+library(purrr)
+
+source("R/utils.R")
+
+theme_set(theme_custom())
+
+multilex_data <- readRDS("data/multilex_data.rds")
+participants <- readRDS("data/participants.rds")
+items <- readRDS("data/items.rds")
+df <- readRDS("data/df.rds")
+model_fit_4 <- readRDS("data/model_fit_4.rds")
+model_loos <- readRDS("data/model_loos.rds")
+post_draws <- readRDS("data/post_draws.rds")
+posterior_description <- readRDS("data/posterior_description.rds")
+epreds <- readRDS("data/epreds.rds")
+
+# tidy predictor names
+str_repl <- c(
+    "b_Intercept[1]" = paste0("Intercept (Comprehension and Production at ",  round(mean(df$age, 2)), " months)"),
+    "b_Intercept[2]" = paste0("Intercept (Comprehension at ", round(mean(df$age, 2)), " months)"),
+    "b_age_std" = paste0("Age (+1 SD, ",  round(sd(df$age), 2), " months)"),
+    "b_freq_std" = paste0("Frequency (+1 SD, ",  round(sd(df$freq), 2), " Zipf)"),
+    "b_n_phon_std" = paste0("Phonemes (+1 SD, ",  round(sd(df$n_phon), 2), " phonemes)"),
+    "b_doe_std" = paste0("DoE (+1 SD, ",  percent(sd(df$doe)), ")"),
+    "b_lv_std" = paste0("Levenshtein (+1 SD, ",  percent(sd(df$lv)), ")"),
+    "b_doe_std:lv_std" = "DoE \u00d7 Levenshtein",
+    "b_age_std:doe_std" = "Age \u00d7 DoE",
+    "b_age_std:lv_std" = "Age \u00d7 Levenshtein",
+    "b_age_std:doe_std:lv_std" = "Age \u00d7 DoE \u00d7 Levenshtein"
+)
+
+post_draws_list <- split(posterior_description, posterior_description$parameter)
+```
+
+## Language similarity: larger vocabulary size?
+
+<br>
+ 
+**Floccia et al. (2018)**
+
+At 2 years of age, bilinguals learning two similar language^[More info about what *similar* means here later on.] (English-Dutch, German) know more words in their **second language**^[Language of lower exposure time.] than those learning two less similar languages (English-Chinese, Hindi).
+
+## Parallel activation
+
+### A candidate mechanism?
+<br>
+
+Bilingual lexical access is language non-selective
+
+![Monolingual lexical access](img/dgr-speak.png){#fig-access-1}
+
+## Parallel activation
+
+### A candidate mechanism?
+![Bilingual lexical access](img/dgr-speak_2.png){#fig-access-2}
+
+## Parallel activation
+
+### A candidate mechanism?
+Costa et al. (2000)
+
+![Bilingual lexical access](img/dgr-speak_3.png){#fig-access-3}
+
+## Parallel activation
+
+### A candidate mechanism?
+
+- Language similarity 
+- Higher amount of cognates
+- Higher cross-language activation
+- Earlier average age of acquisition
+- Larger vocabulary size
+
+## Parallel activation
+
+### A plausible mechanism?
+
+*Some* evidence pointing to a cognate facilitation during acquisition (Scheletter, 2002; Bosch and Ramon-Casas, 2014; Mitchell et al., 2022)
+
+How *exactly* does **cognateness** facilitate acquisition?
+
+## Parallel activation
+
+### Two alternative accounts {.smaller}
+
+1. Pre-lexical facilitation
+
+- Cognateness facilitates the acquisition of words in an early stage
+- Hearing the word in one language strengthens the activation of both translations
+- Both words of the translation equivalent benefit equally from cognateness
+- Acquisition should occur earlier for cognates across both L1 and L2
+
+## Parallel activation
+
+### Two alternative accounts {.smaller}
+
+2. Lexical facilitation
+
+- A cognate effect needs one word form of the translation equivalent to be acquired to take place
+- Words in L1 tend to be acquired earlier than words in L2
+- Words in L2 benefit more strongly from cognateness
+- Acquisition should occur earlier for cognates, but the difference is larger in L2
+
+# The present study
+
+**Aim**: to explore the role of cognateness (phonological similarity between translation equivalents) on word acquisition, and its interaction with language exposure.
+
+## Questionnaire
+
+On-line, inspired in MacArthur-Bates Communicative Develomept Inventory (*CDI*)
+
+~1,600 items/words (800 Catalan + 800 Spanish)
+
+Participants filled a subset of ~500 items (250 Catalan + 250 Spanish)
+    - 4 versions of the questionnaire
+
+## Participants
+
+Sample size: **`r nrow(distinct(df, id, age))` responses** from **`r nrow(distinct(df, id))` participants**
+
+```{r}
+#| label: fig-participants-age
+#| echo: true
+#| message: false
+#| warning: false
+#| fig-width: 7
+#| fig-cap: "Distribution of participants' ages"
+participants %>% 
+    mutate(age = floor(age)) %>% 
+    count(age) %>% 
+    ggplot() +
+    aes(x = age, y = n) +
+    geom_col(fill = pal_d3()(3)[1]) +
+    geom_text(aes(label = n), size = 3.5, vjust = -1) +
+    labs(
+        x = "Age (months)",
+        y = "# participants"
+    ) +
+    scale_x_continuous(breaks = seq(0, 40, 2)) +
+    scale_y_continuous(limits = c(0, 55), breaks = seq(0, 55, 10)) +
+    theme(
+        panel.grid.major.x = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+```
+
+## Predictors
+
+### Participant-level predictors
+
+Age ($Age$): months
+
+Language Degree of Exposure ($DoE$)
+
+*porta* [*door*, in Catalan]: 90% CAT-10% SPA participant, $DoE$ = 0.9
+
+*puerta* [*door*, in Catalan]: 90% CAT-10% SPA participant, $DoE$ = 0.1
+
+
+## Predictors
+
+### Word-level predictors
+
+Lexical frequency ($Frequency$)
+
+Length ($Phonemes$)
+
+Phonological similarity ($Levenshtein$)
+
+
+### Phonological similarity {.smaller}
+
+**Levenshtein distance**: number of edits for two character strings to become identical
+
+|         	| Orthography 	| Phonology 	| String 	|
+|---------	|-------------	|-----------	|--------	|
+| Catalan 	| *porta*      	| /ˈpɔɾ.tə/    	| `pɔɾtə`  	|
+| Spanish 	| *puerta*     	| /ˈpweɾ.ta/   	| `pweɾta` 	|
+
+## {background-color="beige" .smaller}
+
+Normalised Levenshtein similarity:
+
+$$
+1-\frac{lev(A, B)}{Max(length(A), length(B))}
+$$
+<br> 
+
+| Catalan 	                | Spanish   	            | Levenshtein 	    |       
+|---------	                |---------	                |-----	            |
+| *porta* (/ˈpɔɾ.tə/)  	    | *puerta* (/ˈpweɾ.ta/)     |   0.50 (3)  	    |
+| *taula* (/ˈtaw.lə/)       | *mesa* (/ˈmesa/)          |   0.00 (5)    	|
+| *cotxe* (/ˈkɔ.t͡ʃə/)	    | *coche* (/ˈkot͡ʃe/) 	    |   0.40 (3)  	    | 
+| ...     	                | ...     	                | ... 	            |
+
+
+## Data analysis
+
+**Ordinal** regression model: $P(Understands)$, $P(Says)$
+
+- *No* < *Understands* < *Understands and Says*
+
+**Multilevel**: Crossed-random effects
+
+- *Participant* and *Translation equivalent* as grouping variables
+
+**Bayesian**: probability of parameter values
+
+$$P(model | data) \propto P(data | model) \times P(model)$$
+
+
+
+# Results
+
+---
+
+```{r}
+#| label: tbl-results-fixed
+#| tbl-cap: Summarised posterior distribution of fixed regression coefficients.
+#| echo: false
+#| message: false
+#| warning: false
+# summarise posterior draws
+posterior_description %>% 
+    as_tibble() %>% 
+    clean_names() %>% 
+    mutate(
+        parameter = factor(
+            parameter,
+            levels = names(str_repl),
+            labels = str_repl
+        ) %>% 
+            as.character(),
+        prob = ifelse(str_detect(parameter, "Intercept"), plogis(median), median/4)
+    ) %>%
+    filter(!str_detect(parameter, "Intercept")) %>% 
+    select(parameter, median, prob, ci_high, ci_low, rope_percentage) %>%  
+    gt() %>%
+    fmt_number(c(2, 4, 5)) %>%
+    fmt_percent(c(3, 6)) %>%
+    cols_merge(c(ci_low, ci_high), pattern = "[{1}, {2}]") %>%
+    cols_label(
+        parameter = "Parameter",
+        median = "Median",
+        prob = "Prob.",
+        ci_low = md("95% *HDI*"),
+        rope_percentage = md("*ROPE* prob.")
+    ) %>%
+    tab_style(
+        cell_text(weight = "bold"),
+        cells_column_labels(columns = 1:6)
+    ) %>% 
+    tab_style(
+        cell_text(align = "left"),
+        cells_title(groups = "subtitle")
+    )
+```
+
+---
+
+```{r}
+#| label: fig-results-fixed
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 9
+#| fig-heigh: 7
+#| fig-cap: Posterior distribution of fixed regression coefficients
+post_draws %>%
+    mutate(
+        .variable_name = factor(
+            .variable, 
+            levels = names(str_repl),
+            labels = str_repl,
+            ordered = TRUE
+        )
+    ) %>% 
+    filter(!grepl("Intercept|sd", .variable)) %>%
+    ggplot(aes(.value, fct_rev(.variable_name))) +
+    annotate(
+        geom = "rect",
+        ymin = -Inf,
+        ymax = Inf,
+        xmin = -0.10,
+        xmax = 0.10,
+        # xmin = rope_interval["lower"],
+        # xmax = rope_interval["upper"],
+        colour = NA,
+        alpha = 0.5,
+        fill = "grey",
+    ) +
+    geom_vline(
+        xintercept = 0,
+        size = 1,
+        colour = "grey"
+    ) +
+    stat_slab(
+        aes(
+            # fill = stat(abs(x) < rope_interval["upper"]),
+            # colour = stat(abs(x) < rope_interval["upper"]),
+            fill = stat(abs(x) < 0.10),
+            colour = stat(abs(x) < 0.10)       
+        ),
+        size = 0.25,
+        # fill = pal_d3()(2)[2],
+        position = position_nudge(y = 0.15)
+    ) +
+    geom_errorbar(
+        data = post_draws %>% 
+            filter(!grepl("Intercept|sd", .variable)) %>%
+            median_hdi(
+                .exclude = c(
+                    ".chain", 
+                    ".iteration",
+                    ".draw",
+                    ".row", 
+                    ".variable_name"
+                )
+            ) %>% 
+            mutate(
+                .variable_name = factor(
+                    .variable, 
+                    levels = names(str_repl),
+                    labels = str_repl,
+                    ordered = TRUE
+                )
+            ),
+        aes(xmin = .lower, xmax = .upper, x = .value),
+        width = 0.15
+    ) +
+    geom_point(
+        data = post_draws %>% 
+            filter(!grepl("Intercept|sd", .variable)) %>%
+            median_hdi(
+                .exclude = c(
+                    ".chain", 
+                    ".iteration",
+                    ".draw",
+                    ".row", 
+                    ".variable_name"
+                )
+            ) %>% 
+            mutate(
+                .variable_name = factor(
+                    .variable, 
+                    levels = names(str_repl),
+                    labels = str_repl,
+                    ordered = TRUE
+                )
+            ),
+        size = 2
+    ) +
+    geom_text(
+        data = post_draws %>% 
+            filter(!grepl("Intercept|sd", .variable)) %>%
+            mean_hdi(
+                .exclude = c(".chain", ".iteration", ".draw", ".row", ".variable_name")
+            ) %>% 
+            mutate(
+                .variable_name = factor(
+                    .variable, 
+                    levels = names(str_repl),
+                    labels = str_repl,
+                    ordered = TRUE
+                )
+            ),
+        aes(
+            label = paste0(
+                printnum(.value, digits = 2),
+                " [", printnum(.lower, digits = 2), ", ",
+                printnum(.upper, digits = 2), "]"
+            )
+        ),
+        position = position_nudge(y = -0.25),
+        size = 3
+    ) +
+    
+    labs(
+        x = "Coefficient estimate (logit scale)",
+        y = "Variable", 
+        fill = "Overlaps with ROPE (-0.1, +0.1)",
+        colour = "Overlaps with ROPE (-0.1, +0.1)"
+    ) +
+    scale_x_continuous(breaks = seq(-0.4, 2, 0.2)) +
+    scale_fill_manual(
+        values = c("dodgerblue", "#b3d9ff"),
+        labels = c("No", "Yes")
+    ) +
+    scale_colour_manual(
+        values = c("dodgerblue", "#b3d9ff"),
+        labels = c("No", "Yes")
+    ) +
+    theme(
+        legend.position = "top",
+        legend.justification = c(1, 1),
+        axis.title.y = element_blank(),
+        panel.grid.major.x = element_line(
+            colour = "grey85",
+            linetype = "dotted"
+        ),
+        panel.grid.major.y = element_blank(),
+        panel.grid.minor.x = element_blank()
+    )
+
+# annotate(
+#     geom = "text",
+#     label = "ROPE",
+#     x = 0.3,
+#     y = 10,
+#     vjust = 1,
+#     size = 5,
+#     colour = pal_d3()(2)[2]
+# ) +
+# annotate(
+#     geom = "curve",
+#     arrow = arrow(length = unit(0.2, "cm")),
+#     x = 0.3,
+#     y = 9.5,
+#     xend = 0.1,
+#     yend = 9,
+#     size = 1,
+#     curvature = -0.25,
+#     colour = pal_d3()(2)[2]
+# ) +
+```
+
+---
+
+
+```{r}
+#| label: fig-results-marginal
+#| echo: false
+#| message: false
+#| warning: false
+#| fig-width: 8
+#| fig-height: 5
+#| fig-cap: Posterior-predicted marginal means
+d <- df %>%
+    mutate(
+        doe_std = case_when(
+            between(doe, 0.00, 0.20) ~ "DoE: 10%",
+            between(doe, 0.40, 0.60) ~ "DoE: 50%",
+            between(doe, 0.80, 1.00) ~ "DoE: 90%"
+        ) %>% 
+            factor(., levels = paste0("DoE: ", percent(c(0.1, 0.5, 0.9)))),
+        lv_std = case_when(
+            between(lv, 0.00, 0.20) ~ "0%",
+            between(lv, 0.40, 0.60) ~ "50%",
+            between(lv, 0.80, 1.00) ~ "100%"
+        ) %>%
+            factor(., levels = paste0(percent(seq(0, 1, 0.5)))),
+        age_std = ((floor(age)-mean(df$age))/(sd(df$age))) %>% 
+            cut(
+                .,
+                breaks = ((seq(10, 38, 2)-mean(df$age))/(sd(df$age))),
+                labels = ((seq(10, 36, 2)-mean(df$age))/(sd(df$age))),
+                include.lowest = TRUE
+            ) %>% 
+            as.character() %>% 
+            as.numeric(),
+        Understands = response %in% c("Understands", "Understands and Says"),
+        `Understands and Says` = response %in% "Understands and Says"
+    ) %>% 
+    drop_na(doe_std) %>% 
+    group_by(te, age_std, doe_std, lv_std) %>% 
+    summarise(
+        Understands = mean(Understands),
+        `Understands and Says` = mean(`Understands and Says`),
+        .groups = "drop"
+    ) %>% 
+    pivot_longer(
+        c(Understands, `Understands and Says`),
+        names_to = ".category",
+        values_to = ".epred"
+    ) %>% 
+    mutate(
+        .category = str_replace_all(
+            .category,
+            c(
+                "Understands and Says" = "Production\n(Understands and Says)",
+                "Understands" = "Comprehension\n(Understands)"
+            )
+        )
+    )
+
+epreds %>% 
+    ggplot() +
+    aes(
+        x = age_std, 
+        y = .epred, 
+        colour = lv_std,
+        fill = lv_std
+    ) +
+    facet_grid(.category~doe_std) +
+    stat_lineribbon(
+        size = 1,
+        alpha = 0.5,
+        .width = 0.95, 
+        colour = NA,
+        point_interval = mean_hdi
+    ) +
+    # stat_summary(
+    #     data = d,
+    #     fun.data = "mean_se",
+    #     geom = "pointrange",
+    #     size = 0.25
+    # ) +
+    # geom_point(
+    #     data = d,
+    #     position = position_dodge(width = 0.25),
+    #     size = 0.5,
+    #     alpha = 0.5
+# ) +
+stat_summary(fun = "mean", geom = "line", size = 1) +
+    scale_x_continuous(
+        breaks = (seq(8, 38, 4)-mean(df$age))/(sd(df$age)),
+        labels = seq(8, 38, 4)
+    ) +
+    scale_color_d3() +
+    scale_fill_d3() +
+    labs(
+        x = "Age (months)", 
+        y = "Probability of acquisition",
+        colour = "Levenshtein (Phonological similarity)",
+        fill = "Levenshtein (Phonological similarity)"
+    ) +
+    scale_y_continuous(labels = percent, limits = c(0, 1)) +
+    theme(
+        legend.position = "top",
+        axis.ticks.x = element_line(colour = "black"),
+        panel.grid.minor = element_blank(),
+        panel.grid.major.x = element_blank(),
+        panel.border = element_rect(fill = NA, colour = "black", size = 0.75),
+        strip.background = element_rect(fill = "grey", colour = NA),
+        plot.background = element_rect(fill = "white", colour = NA)
+    )
+```
+
+# Conclusions
+
+Cognateness facilitates word acquisition, but...
+
+<br>
+
+Only words from the language of lower exposure benefit from it
+
+<br>
+
+Cognateness might play a role *after* one of the word-forms of the translation equivalent has been acquired
+
+---
+
+::: {.r-fit-text}
+Thanks
+:::
+

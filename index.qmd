@@ -165,7 +165,7 @@ Sample size: **`r nrow(distinct(df, id, age))` responses** from **`r nrow(distin
 
 ```{r}
 #| label: fig-participants-age
-#| echo: true
+#| echo: false
 #| message: false
 #| warning: false
 #| fig-width: 7
@@ -193,13 +193,15 @@ participants %>%
 
 ### Participant-level predictors
 
-Age ($Age$): months
+Age ($Age$) in months
 
-Language Degree of Exposure ($DoE$)
+Language Degree of Exposure ($DoE$):
 
-*porta* [*door*, in Catalan]: 90% CAT-10% SPA participant, $DoE$ = 0.9
+For a 90% CAT-10% SPA participant
 
-*puerta* [*door*, in Catalan]: 90% CAT-10% SPA participant, $DoE$ = 0.1
+- *porta* [*door*, in Catalan]| $DoE$ = 0.9
+
+- *puerta* [*door*, in Spanish] | $DoE$ = 0.1
 
 
 ## Predictors
@@ -212,6 +214,8 @@ Length ($Phonemes$)
 
 Phonological similarity ($Levenshtein$)
 
+
+---
 
 ### Phonological similarity {.smaller}
 
@@ -581,7 +585,7 @@ stat_summary(fun = "mean", geom = "line", size = 1) +
     )
 ```
 
-# Conclusions
+# Conclusions {.smaller}
 
 Cognateness facilitates word acquisition, but...
 
